@@ -1,0 +1,509 @@
+---
+title: "Final Project Subsetting"
+date: "4/6/2022"
+output: word_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = 'C:/Users/eschy/Desktop/PhD_Classes/Dissertation/MEPS/Household')
+```
+
+# Add packages from library
+```{r include=FALSE}
+library(foreign)
+library(tidyverse)
+```
+
+# Set working directory and read in file
+```{r echo=FALSE}
+hc2018 <- read.csv("hc2018.csv")
+```
+
+# Create a subset with only the variables needed in the project
+```{r echo=FALSE}
+hc2018_sub <- 
+  hc2018 %>%
+  filter(AGE18X >= 65) %>% 
+  select(c(RXTOT18,AGE18X,SEX,MARRY18X,FAMINC18,RTHLTH31,REGION18,EDUCYR,COGLIM31,WLKLIM31,CANCERDX,ARTHDX,CHDDX,DIABDX_M18,STRKDX,IPDIS18)) %>% 
+  na_if(-99) %>%
+  na_if(-98) %>%
+  na_if(-15) %>% 
+  na_if(-8) %>% 
+  na_if(-7) %>%
+  na_if(-1) %>% 
+  drop_na %>% 
+  mutate(GENDER = if_else(SEX == 2,1,0),
+         MARRIED = if_else(MARRY18X == 1,1,0),
+         READMISSION = if_else(IPDIS18 >=2,1,0),
+         COGLIM = if_else(COGLIM31 == 1,1,0),
+         WLKLIM = if_else(WLKLIM31 == 1,1,0),
+         CANCER = if_else(CANCERDX == 1,1,0),
+         ARTHRITIS = if_else(ARTHDX == 1,1,0),
+         CORHD = if_else(CHDDX == 1,1,0),
+         DIABETES = if_else(DIABDX_M18 == 1,1,0),
+         STROKE = if_else(STRKDX == 1,1,0)) %>% 
+  mutate(ED=case_when(
+  (EDUCYR <= 11) ~"LESS THAN HS",
+  (EDUCYR == 12) ~"HS GRAD",
+  (EDUCYR > 12 & EDUCYR <16) ~ "SOME COLLEGE",
+  (EDUCYR >= 16) ~ "BA/BS OR HIGHER")) %>% 
+  mutate(across(c(GENDER,MARRIED,READMISSION,COGLIM,WLKLIM,CANCER,ARTHRITIS,CORHD,DIABETES,STROKE,RTHLTH31,REGION18,EDUCYR), factor),
+         GENDER = recode(GENDER,
+                        `0` = "MALE",
+                        `1` = "FEMALE"),
+         MARRIED = recode(MARRIED,
+                          `0` = "NOT MARRIED",
+                          `1` = "MARRIED"),
+         READMISSION = recode(READMISSION,
+                          `0` = "NO",
+                          `1` = "YES"),
+         COGLIM = recode(COGLIM,
+                         `0` = "NO",
+                         `1` = "YES"),
+         WLKLIM = recode(WLKLIM,
+                         `0` = "NO",
+                         `1` = "YES"),
+         CANCER = recode(CANCER,
+                         `0` = "NO",
+                         `1` = "YES"),
+         ARTHRITIS = recode(ARTHRITIS,
+                            `0` = "NO",
+                            `1` = "YES"),
+         CORHD = recode(CORHD,
+                        `0` = "NO",
+                        `1` = "YES"),
+         DIABETES = recode(DIABETES,
+                           `0` = "NO",
+                           `1` = "YES"),
+         STROKE = recode(STROKE,
+                         `0` = "NO",
+                         `1` = "YES"),
+         RTHLTH31 = recode(RTHLTH31, 
+                          `1` = "EXCELLENT",
+                          `2` = "VERY GOOD",
+                          `3` = "GOOD",
+                          `4` = "FAIR",
+                          `5` = "POOR"),
+         REGION18 = recode(REGION18,
+                           `1` = "NORTHEAST",
+                           `2` = "MIDWEST",
+                           `3` = "SOUTH",
+                           `4` = "WEST"),
+         EDUCYR = recode(EDUCYR,
+                            `0` = "NO SCHOOL/KINDERGARTEN",
+                            `1` = "1ST GRADE",
+                            `2` = "2ND GRADE",
+                            `3` = "3RD GRADE",
+                            `4` = "4TH GRADE",
+                            `5` = "5TH GRADE",
+                            `6` = "6TH GRADE",
+                            `7` = "7TH GRADE",
+                            `8` = "8TH GRADE",
+                            `9` = "9TH GRADE",
+                            `10` = "10TH GRADE",
+                            `11` = "11TH GRADE",
+                            `12` = "HS GRADUATE",
+                            `13` = "1 YR COLLEGE",
+                            `14` = "2 YRS COLLEGE",
+                            `15` = "3 YRS COLLEGE",
+                            `16` = "4 YRS COLLEGE",
+                            `17` = "5+ YRS COLLEGE")) 
+```
+
+
+```{r echo=FALSE}
+write.csv(hc2018_sub,"hc2018_sub.csv")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 2: Data Preparation
+
+# a: Load,recode, and reclass
+```{r echo=TRUE}
+credit3 <- read.csv("credit3_AC.csv")
+# Numeric variable
+credit3$PROFITABLE <- if_else(credit3$NPV > 0,1,0)
+# remove ,'s in variables
+credit3$AMOUNT_REQUESTED <- as.numeric(gsub('[,]','', credit3$AMOUNT_REQUESTED))
+credit3$CREDIT_EXTENDED <- as.numeric(gsub('[,]','', credit3$CREDIT_EXTENDED))
+credit3[,1] <- NULL
+credit3.d <- dummy_cols(credit3, select_columns = c("CHK_ACCT", "SAV_ACCT", "HISTORY", "JOB", "TYPE"))
+```
+# Subset data frame to exclude columns/variables not needed
+```{r echo=FALSE}
+credit3.knn <- credit3.d[,c(1,4:5,7:8,10:18,20,23:48)]
+```
+
+# Normalize data
+```{r echo=FALSE}
+fun <- function(x){ 
+  a <- mean(x) 
+  b <- sd(x) 
+  (x - a)/(b) 
+} 
+credit3.knn[,1:15] <- apply(credit3.knn[,1:15], 2, fun)
+credit3.knn[,17:41] <- apply(credit3.knn[,17:41], 2, fun)
+```
+
+# Set seed to 12345
+```{r echo=TRUE}
+set.seed(12345)
+```
+
+# Randomly partition data (70% Train, 30% Test)
+```{r echo= TRUE}
+inTrain <- createDataPartition(credit3.knn$PROFITABLE, p=0.7, list=FALSE)
+#
+knntrain <- data.frame(credit3.knn[inTrain,]) # with 70% of the data
+knnval <- data.frame(credit3.knn[-inTrain,]) # with 30% of the data
+```
+
+#3: Exploratory analysis of the data: THIS SECTION WILL REQUIRE USE OF THE credit3.nb DATA SET CREATED WITH FACTOR VARIABLES FOR NAIVE BAYES IN QUESTIONS 7-10
+
+# Construct visualizations (plots)
+```{r eval=FALSE, include=FALSE}
+
+# Preference by Income
+ggplot(data = credit3.nb, aes(x = PROFITABLE, y = AGE, fill = PROFITABLE)) + 
+geom_boxplot()+
+labs(x = "Profitability", y = "Age of Applicant (years)", title = "Profitability by Age of Applicant")+
+   theme(legend.position="bottom",plot.title = element_text(face = "bold", hjust = 0.5))
+
+ggplot(data = credit3.nb, aes(x = DURATION, y = AMOUNT_REQUESTED, color = PROFITABLE, shape = PROFITABLE)) + 
+geom_point()+
+labs(x = "Duration of Loan (months)", y = "Loan Amount Requested ($US)", title = "Profitability by Loan Amount and Duration")+
+   theme(legend.position="bottom",plot.title = element_text(face = "bold", hjust = 0.5))
+
+ggplot(data = credit3.nb, aes(x = AMOUNT_REQUESTED, fill = PROFITABLE)) + 
+  geom_histogram (position = "stack",color = "white", bins = 7,) +
+  labs(x= "Loan Amount Requested ($)", y = "Frequency",title = "Profitability by Amount Requested and Installment Rate")+
+  facet_grid(~INSTALL_RATE, labeller = label_value) +
+  theme(panel.spacing = unit(2, "lines"),
+        axis.text=element_text(size = 6),
+        legend.position="bottom",
+        plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+# Construct visualizations (cross tabulation)
+
+```{r eval=FALSE, include=FALSE}
+library(table1)
+
+labels <- list(variables = list(EMPLOYMENT = "Years at Current Employment", INSTALL_RATE = "Rate as % of disposable income",RENT = "Renting Residence", TYPE = "Type of Loan",REAL_ESTATE = "Applicant Owns Real Estate",FOREIGN = "Foreign Worker",CHK_ACCT = "$ Amount in Checking",SAV_ACCT = "Average Balance in Savings", OWN_RES = "Own Residence"),
+               groups = list("Profitable", ""))
+strata <- c(split(credit3.nb, credit3.nb$PROFITABLE),list(Total = credit3.nb))
+
+table1(strata, labels, groupspan = c(2,1))
+```
+
+# 4: Run the k-NN algorith for classification, testing all values from 1 to 15, determine which is the best value of k. Score the data on the best k (normalize data first)
+
+# Data was normalized in earlier step, see lines #43-51 above
+
+```{r echo=FALSE}
+# The knn function requires inputs to be matrices or vectors
+# The 16th column is the dependent variable PROFITABLE
+train_input <- as.matrix(knntrain[,-16])
+train_output <- as.vector(knntrain[,16])
+validate_input <- as.matrix(knnval[,-16])
+```
+
+```{r echo=FALSE}
+# Now we look for the value of K which minimizes validation error rate
+# We will search in the range 1:15
+kmax <- 15
+ER1 <- rep(0,kmax) # Zero vectors to be updated below with error rates
+ER2 <- rep(0,kmax) #
+```
+
+```{r echo=FALSE}
+# We fit a model for each value of K in the range 1:15
+for (i in 1:kmax){
+prediction <- knn(train_input, train_input,train_output, k=i)
+prediction2 <- knn(train_input, validate_input,train_output, k=i)
+#
+# The confusion matrix for training data is:
+CM1 <- table(knntrain$PROFITABLE,prediction)
+# The training error rate is:
+ER1[i] <- (CM1[1,2]+CM1[2,1])/sum(CM1)
+# The confusion matrix for validation data is: 
+CM2 <- table(knnval$PROFITABLE,prediction2)
+ER2[i] <- (CM2[1,2]+CM2[2,1])/sum(CM2)
+}
+```
+
+#a: Plots
+```{r echo=FALSE}
+plot(c(1,kmax),c(0,0.4),type="n", xlab="k",ylab="Error Rate", main = "Exhibit 1: Error Rates by k: Training vs. Validation")
+lines(ER1,col="red")
+lines(ER2,col="blue")
+legend(9, 0.1, c("Training","Validation"),lty=c(1,1), col=c("red","blue"))
+```
+# Find K to minimize ER2 (validation error)
+```{r echo=FALSE}
+z <- which.min(ER2)
+cat("Minimum Validation Error k:", z)
+```
+
+#b-c: Scoring at optimal k = 14
+```{r echo=FALSE}
+prediction <- knn(train_input, train_input,train_output, k=z)
+prediction2 <- knn(train_input, validate_input,train_output, k=z)
+#
+CM1 <- table(knntrain$PROFITABLE,prediction)
+CM2 <- table(knnval$PROFITABLE,prediction2)
+CM1
+CM2
+ER2 <- (CM2[1,2]+CM2[2,1])/sum(CM2)
+ER2
+```
+# Obtain class probabilities for use in ROCR package
+
+```{r echo=FALSE}
+prediction2.rocr <- knn(train_input, validate_input,train_output, k=z, prob = TRUE)
+prob <- attr(prediction2.rocr,"prob")
+prob.k <- 2*ifelse(prediction2 == "-1",1-prob, prob) - 1
+```
+
+
+#8: Recode to factor variables
+```{r eval=FALSE, include=FALSE}
+credit3.nb <- 
+  credit3 %>%
+  select(c(AGE,CHK_ACCT,SAV_ACCT,NUM_CREDITS,DURATION,HISTORY,PRESENT_RESIDENT,EMPLOYMENT,JOB,NUM_DEPENDENTS,RENT,INSTALL_RATE,GUARANTOR,OTHER_INSTALL,OWN_RES,TELEPHONE,FOREIGN,REAL_ESTATE,TYPE,AMOUNT_REQUESTED,PROFITABLE)) %>% 
+mutate(across(c(CHK_ACCT,SAV_ACCT,NUM_CREDITS,HISTORY,PRESENT_RESIDENT,EMPLOYMENT,JOB,NUM_DEPENDENTS,RENT,INSTALL_RATE,GUARANTOR,OTHER_INSTALL,OWN_RES,TELEPHONE,FOREIGN,REAL_ESTATE,TYPE,PROFITABLE), factor),
+         PROFITABLE = recode(PROFITABLE,
+                             `0` = "No",
+                             `1` = "Yes"),
+         CHK_ACCT = recode(CHK_ACCT,
+                          `0` = "< 0",
+                          `1` = "0<...<200",
+                          `2` = "=>200",
+                          `3` = "no chk acct"),
+         SAV_ACCT = recode(SAV_ACCT,
+                           `0` = "< 100",
+                           `1` = "100<=...<500",
+                           `2` = "500<=...<1000",
+                           `3` = "=>1000",
+                           `4` = "no sav acct"),
+         NUM_CREDITS = recode(NUM_CREDITS,
+                              `1` = "0-1",
+                              `2` = "2-4",
+                              `3` = "5-8",
+                              `4` = "=>8"),
+         HISTORY = recode(HISTORY,
+                          `0` = "no credits taken",
+                          `1` = "all credits paid",
+                          `2` = "existing credits paid",
+                          `3` = "delay in past dues",
+                          `4` = "critical account"),
+         PRESENT_RESIDENT = recode(PRESENT_RESIDENT,
+                                   `1` = "<=1 year",
+                                   `2` = "<=2 years",
+                                   `3` = "<=3 years",
+                                   `4` = ">4 years"),
+         EMPLOYMENT = recode(EMPLOYMENT,
+                             `0` = "unemployed",
+                             `1` = "<1 year",
+                             `2` = "1<=...<4 years",
+                             `3` = "4<=...<7 year",
+                             `4` = ">=7 years"),
+         JOB = recode(JOB,
+                      `0` = "unemployed/unskilled-non-resident",
+                      `1` = "unskilled-resident",
+                      `2` = "skillled employee/official",
+                      `3` = "management/self-employed/highly qualified/officer"),
+         NUM_DEPENDENTS = recode(NUM_DEPENDENTS,
+                                 `1` = "0 or 1",
+                                 `2` = "2 or more"),
+         RENT = recode(RENT,
+                       `0` = "No",
+                       `1` = "Yes"),
+         INSTALL_RATE = recode(INSTALL_RATE,
+                               `1` = "<1%",
+                               `2` = "1-2%",
+                               `3` = "2-3%",
+                               `4` = ">=3%"),
+         GUARANTOR = recode(GUARANTOR,
+                            `0` = "No",
+                            `1` = "Yes"),
+         OTHER_INSTALL = recode(OTHER_INSTALL,
+                                `0` = "No",
+                                `1` = "Yes"),
+         OWN_RES = recode(OWN_RES,
+                          `0` = "No",
+                          `1` = "Yes"),
+         TELEPHONE = recode(TELEPHONE,
+                            `0` = "No",
+                            `1` = "Yes"),
+         FOREIGN = recode(FOREIGN,
+                          `0` = "No",
+                          `1` = "Yes"),
+         REAL_ESTATE = recode(REAL_ESTATE,
+                              `0` = "No",
+                              `1` = "Yes"),
+         TYPE = recode(TYPE,
+                       `0` = "Other",
+                       `1` = "New Car",
+                       `2` = "Used Car",
+                       `3` = "Furniture",
+                       `4` = "Durable",
+                       `5` = "Education",
+                       `6` = "Retraining"))
+```
+
+# Split data and set the seed
+
+# Set seed to 12345
+```{r echo=TRUE}
+set.seed(12345)
+```
+# Randomly partition data (70% Train, 30% Test)
+```{r eval=FALSE, include=FALSE}
+inTrain.nb <- sample(nrow(credit3.nb), 0.7*nrow(credit3.nb))
+train.nb <- data.frame(credit3.nb[inTrain.nb,]) # with 70% of the data
+val.nb <- data.frame(credit3.nb[-inTrain.nb,])
+```
+
+# 9: Run Naive Bayes classification model
+
+# The function to run Naive Bayes
+```{r eval=FALSE, include=FALSE}
+model <- naiveBayes(PROFITABLE~., data=train.nb)
+model
+```
+
+# Make class predictions
+```{r echo=FALSE}
+##
+# For class predictions (using a cutoff of 0.5)
+prediction.nb <- predict(model, newdata = val.nb[,-16])
+cm <- table(val.nb$PROFITABLE,prediction.nb,dnn=list('actual','predicted'))
+#
+# For class probabilities (note the argument type="raw)
+predicted.probability <- predict(model, newdata = val.nb[,-16], type="raw")
+# The first column is for class 0, the second is class 1
+
+# Model Evaluation 
+confusionMatrix(cm)
+```
+
+# 10: Run a prediction for new applicant based upon model
+
+# Create data frame for applicant
+```{r eval=FALSE, include=FALSE}
+applicant <- data.frame(AGE = 27,FOREIGN = "No",CHK_ACCT = "0<...<200",SAV_ACCT ="no sav acct",NUM_CREDITS ="0-1",DURATION = 12,HISTORY = "all credits paid",RENT = "Yes",PRESENT_RESIDENT = "<=1 year",EMPLOYMENT = "<1 year",JOB = "skillled employee/official",NUM_DEPENDENTS = "0 or 1", GUARANTOR = "No", TYPE = "Used Car", AMOUNT_REQUESTED = 4500,INSTALL_RATE = "2-3%",OTHER_INSTALL = "No", TELEPHONE = "Yes"  )
+```
+
+# Run prediction
+```{r echo=FALSE}
+pred.app <- predict(model, newdata = applicant, type = "raw")
+pred.app
+```
+
+# 11: Model Comparison (Fit a logistic regression with all relevant variables)
+
+# Modify data set for logistic regression
+```{r echo = FALSE}
+credit3.log <- 
+  credit3 %>%
+   select(c(AGE,CHK_ACCT,SAV_ACCT,NUM_CREDITS,DURATION,HISTORY,PRESENT_RESIDENT,EMPLOYMENT,JOB,NUM_DEPENDENTS,RENT,INSTALL_RATE,GUARANTOR,OTHER_INSTALL,OWN_RES,TELEPHONE,FOREIGN,REAL_ESTATE,TYPE,AMOUNT_REQUESTED,PROFITABLE)) %>% 
+  mutate(across(c(CHK_ACCT,SAV_ACCT,HISTORY,JOB,TYPE), factor))
+```
+
+# Set seed to 12345
+```{r echo=TRUE}
+set.seed(12345)
+```
+# Randomly partition data (70% Train, 30% Test)
+```{r echo=FALSE}
+inTrain.log <- sample(nrow(credit3.log), 0.7*nrow(credit3.log))
+train.log<- data.frame(credit3.log[inTrain.log,]) # with 70% of the data
+val.log <- data.frame(credit3.log[-inTrain.log,])
+```
+
+# Fit model using logistic regression
+```{r echo=FALSE}
+fit <- glm(PROFITABLE~.,data=train.log, family="binomial")
+summary(fit)
+predictprob_train <- predict(fit,type = "response")
+actualclass_train <- train.log$PROFITABLE
+predictedclass_train <- ifelse(predictprob_train>0.5,1,0)
+prdf <- data.frame(predictprob_train,predictedclass_train, actualclass_train )
+predictprob_val <- predict(fit,type = "response",newdata=val.log)
+actualclass_val <- val.log$PROFITABLE
+predictedclass_val <- ifelse(predictprob_val>0.5,1,0)
+#
+(conf_train <- table(actualclass_train,predictedclass_train))
+(conf_val <- table(actualclass_val,predictedclass_val))
+#
+(ERR_train <- (conf_train[1,2]+conf_train[2,1])/sum(conf_train))
+(ERR_val <- (conf_val[1,2]+conf_val[2,1])/sum(conf_val))
+
+(Sens_val= conf_val[2,2]/sum(conf_val[2,]))
+(Spec_val= conf_val[1,1]/sum(conf_val[1,]))
+
+```
+
+#12: Construct ROC curves for all three models on the same graph
+
+# Load ROCR package
+```{r echo=FALSE}
+library(ROCR)
+```
+
+# Plot ROC curves for all three models on one graph
+```{r echo=FALSE}
+## We had reversed the default levels of Preference - this requires a correction
+pd.k <- prediction(prob.k, knnval$PROFITABLE)
+pf.k <- performance(pd.k, "tpr","fpr")
+
+pd.n <- prediction(predicted.probability[,2], val.nb$PROFITABLE)
+pf.n <- performance(pd.n, "tpr","fpr")
+
+pd.l <- prediction(predictprob_val, actualclass_val)
+pf.l <- performance(pd.l, "tpr","fpr")
+
+plot(pf.k, col = "green", main = "ROC Curve Model Comparison: k-NN vs. Naive Bayes vs. Logistic")
+plot(pf.n, add = TRUE, col = "blue")
+plot(pf.l, add = TRUE, col = "red")
+abline(0,1, col = )
+
+# Add legend
+legend(0.7,0.3, legend = c("k-NN", "Naive Bayes", "Logistic"), col = c("green", "blue", "red"), lty = 1)
+
+##
+pf_k <- performance(pd.k, "auc")
+pf_n <- performance(pd.n, "auc")
+pf_l <- performance(pd.l, "auc")
+# y.values is the AUC
+pf_k@y.values
+pf_n@y.values
+pf_l@y.values
+```
+
+# Use to clear global environment
+rm(list = ls())
